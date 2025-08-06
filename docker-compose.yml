@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: cheflink
+      POSTGRES_PASSWORD: cheflink_password
+      POSTGRES_DB: cheflink
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cheflink"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://cheflink:cheflink_password@db:5432/cheflink
+      DATABASE_SYNC_URL: postgresql://cheflink:cheflink_password@db:5432/cheflink
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./:/app
+      - ./test-recipes:/app/test-recipes
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://cheflink:cheflink_password@db:5432/cheflink
+      DATABASE_SYNC_URL: postgresql://cheflink:cheflink_password@db:5432/cheflink
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+    volumes:
+      - ./:/app
+    restart: unless-stopped
+
+  celery:
+    build: .
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://cheflink:cheflink_password@db:5432/cheflink
+      DATABASE_SYNC_URL: postgresql://cheflink:cheflink_password@db:5432/cheflink
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./:/app
+    command: celery -A app.celery worker --loglevel=info
+
+volumes:
+  postgres_data:
