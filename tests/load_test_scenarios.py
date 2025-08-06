@@ -80,7 +80,7 @@ class LoadTestScenarios:
     ]
     
     @classmethod
-    async def run_scenario(cls, handler: FamilyHandlersV2Agentic, scenario: Dict[str, Any]) -> Dict[str, Any]:
+    async def run_scenario(cls, handler, scenario: Dict[str, Any]) -> Dict[str, Any]:
         """Run a single test scenario and collect metrics."""
         start_time = time.time()
         
@@ -145,7 +145,7 @@ class LoadTestScenarios:
         return metrics
     
     @classmethod
-    async def run_all_scenarios(cls, handler: FamilyHandlersV2Agentic) -> List[Dict[str, Any]]:
+    async def run_all_scenarios(cls, handler) -> List[Dict[str, Any]]:
         """Run all test scenarios and collect results."""
         results = []
         

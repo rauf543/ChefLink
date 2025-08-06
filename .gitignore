@@ -149,4 +149,12 @@ Thumbs.db
 # Project specific
 *.pdf
 !docs/*.pdf
+!test-recipes/*.pdf
 postgres_data/
+
+# Backups and migration artifacts
+backups/
+migration_backups/
+
+# Temporary test files in root
+test_*.py
