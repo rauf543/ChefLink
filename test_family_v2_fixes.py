@@ -11,13 +11,14 @@ from sqlalchemy.orm import sessionmaker
 
 from app.database.base import AsyncSessionLocal
 from app.database.models import Recipe, User, MealPlan
-from app.services.telegram.handlers.family_v2 import FamilyHandlersV2
+from app.services.telegram.handlers.family_v3_refactored import FamilyHandlerV3
 
 
 async def test_recipe_validation():
     """Test that invalid recipe IDs are properly handled"""
     
-    handler = FamilyHandlersV2()
+    # Note: FamilyHandlerV3 requires a db session
+    # Will be instantiated inside the async context
     
     async with AsyncSessionLocal() as db:
         # Get a test user
@@ -113,7 +114,8 @@ async def test_recipe_validation():
 async def test_error_handling():
     """Test general error handling improvements"""
     
-    handler = FamilyHandlersV2()
+    # Note: FamilyHandlerV3 requires a db session
+    # Will be instantiated inside the async context
     
     # Test with empty response handling
     print("\n5. Testing response processing with edge cases...")

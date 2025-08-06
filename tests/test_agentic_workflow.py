@@ -5,7 +5,7 @@ import re
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
 from datetime import datetime
 
-from app.services.telegram.handlers.family_v2_agentic import FamilyHandlersV2Agentic
+from app.services.telegram.handlers.family_v3_refactored import FamilyHandlerV3
 from app.database.models import User, UserRole
 
 
@@ -15,7 +15,9 @@ class TestAgenticWorkflow:
     @pytest.fixture
     def handler(self):
         """Create a handler instance with mocked LLM service."""
-        handler = FamilyHandlersV2Agentic()
+        # Mock database session
+        mock_db = AsyncMock()
+        handler = FamilyHandlerV3(mock_db)
         handler.llm_service = Mock()
         handler.llm_service.model = "claude-opus-4-20250514"
         handler.llm_service.client = AsyncMock()

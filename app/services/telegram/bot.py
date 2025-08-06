@@ -17,8 +17,7 @@ from app.core.config import settings
 from app.database.base import AsyncSessionLocal
 from app.database.models import MealPlanStatus, UserRole
 from app.services.telegram.handlers.chef import ChefHandlers
-from app.services.telegram.handlers.family import FamilyHandlers
-from app.services.telegram.handlers.family_v2_agentic import FamilyHandlersV2Agentic
+from app.services.telegram.handlers.family_v3_refactored import FamilyHandlerV3
 from app.services.telegram.handlers.shared import SharedHandlers
 from app.services.telegram.utils import States, get_user_by_telegram_id
 
@@ -37,8 +36,8 @@ class ChefLinkBot:
             .build()
         )
         self.shared_handlers = SharedHandlers()
-        self.family_handlers = FamilyHandlers()  # Keep for old commands like /search
-        self.family_handlers_v2 = FamilyHandlersV2Agentic()  # Agentic workflow is now the default
+        # Unified family handler replaces v1, v2, and v2_agentic
+        self.family_handler = FamilyHandlerV3  # Class, not instance - will be instantiated per request
         self.chef_handlers = ChefHandlers()
         
     def setup_handlers(self):
@@ -67,10 +66,10 @@ class ChefLinkBot:
         
         # Family member handlers
         self.application.add_handler(
-            CommandHandler("myplan", self.family_handlers.show_meal_plan)
+            CommandHandler("myplan", self.handle_myplan_command)
         )
         self.application.add_handler(
-            CommandHandler("search", self.family_handlers.search_recipes)
+            CommandHandler("search", self.handle_search_command)
         )
         # Clear command not needed for agentic workflow since history is managed differently
         
@@ -110,8 +109,9 @@ class ChefLinkBot:
                 return
                 
             if user.role == UserRole.FAMILY_MEMBER:
-                # Use the agentic workflow for all family members
-                await self.family_handlers_v2.handle_message(update, context)
+                # Use the unified handler for all family members
+                handler = self.family_handler(db)
+                await handler.handle_message(update, context, user)
             else:
                 await update.message.reply_text(
                     "As a chef, please use specific commands:\n"
@@ -169,6 +169,32 @@ class ChefLinkBot:
             
             logger.info(f"Locked meal plans for {tomorrow}")
             
+    async def handle_myplan_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /myplan command using unified handler."""
+        async with AsyncSessionLocal() as db:
+            user = await get_user_by_telegram_id(db, str(update.effective_user.id))
+            if user and user.role == UserRole.FAMILY_MEMBER:
+                # For now, forward to message handler with appropriate text
+                update.message.text = "Show me my meal plan for today"
+                handler = self.family_handler(db)
+                await handler.handle_message(update, context, user)
+            else:
+                await update.message.reply_text("This command is only for family members.")
+    
+    async def handle_search_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /search command using unified handler."""
+        async with AsyncSessionLocal() as db:
+            user = await get_user_by_telegram_id(db, str(update.effective_user.id))
+            if user and user.role == UserRole.FAMILY_MEMBER:
+                query = ' '.join(context.args) if context.args else ""
+                if not query:
+                    await update.message.reply_text("Please provide a search query. Example: /search chicken salad")
+                    return
+                handler = self.family_handler(db)
+                await handler.handle_recipe_search(update, context, user, query)
+            else:
+                await update.message.reply_text("This command is only for family members.")
+    
     def run(self):
         """Run the bot."""
         self.setup_handlers()

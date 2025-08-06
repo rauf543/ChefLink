@@ -6,7 +6,7 @@ from typing import List, Dict, Any
 import json
 import logging
 
-from app.services.telegram.handlers.family_v2_agentic import FamilyHandlersV2Agentic
+from app.services.telegram.handlers.family_v3_refactored import FamilyHandlerV3
 from app.database.models import User, UserRole
 
 
@@ -267,8 +267,10 @@ async def main():
     """Run the load test."""
     logging.basicConfig(level=logging.INFO)
     
-    # Create handler instance
-    handler = FamilyHandlersV2Agentic()
+    # Create handler instance with mock DB
+    from unittest.mock import AsyncMock
+    mock_db = AsyncMock()
+    handler = FamilyHandlerV3(mock_db)
     
     # Mock the LLM service
     from unittest.mock import Mock, AsyncMock
